@@ -9,9 +9,24 @@ const progressRoutes = require("./routes/progress");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
-const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:5173";
+const allowedOrigins = [
+  "https://deustch-lerne-app.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:3000",
+];
 
-app.use(cors({ origin: CORS_ORIGIN }));
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error("Blocked by CORS policy"));
+      }
+    },
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
