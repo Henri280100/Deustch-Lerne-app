@@ -31,9 +31,9 @@ app.use(express.json());
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
-app.use("/api/auth", authRoutes);
-app.use("/api/lessons", lessonRoutes);
-app.use("/api/progress", progressRoutes);
+app.use("/auth", authRoutes);
+app.use("/lessons", lessonRoutes);
+app.use("/progress", progressRoutes);
 
 app.use((req, res) => res.status(404).json({ error: "Not found." }));
 
