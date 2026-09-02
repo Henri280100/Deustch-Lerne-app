@@ -1,7 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const db = require("../db");
+const { client } = require("../db");
 const { requireAuth, JWT_SECRET } = require("../middleware/auth");
 
 const router = express.Router();
@@ -19,7 +19,7 @@ function toPublicUser(row) {
   };
 }
 
-router.post("/register", (req, res) => {
+router.post("/register", async (req, res) => {
   const { name, email, password } = req.body || {};
 
   if (!name || !email || !password) {
@@ -29,28 +29,40 @@ router.post("/register", (req, res) => {
     return res.status(400).json({ error: "Password must be at least 6 characters." });
   }
 
-  const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(email.toLowerCase());
-  if (existing) {
+  const existing = await client.execute({
+    sql: "SELECT id FROM users WHERE email = ?",
+    args: [email.toLowerCase().trim()]
+  });
+  if (existing.rows.length > 0) {
     return res.status(409).json({ error: "An account with this email already exists." });
   }
 
   const passwordHash = bcrypt.hashSync(password, 10);
-  const info = db
-    .prepare("INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)")
-    .run(name.trim(), email.toLowerCase().trim(), passwordHash);
+  const inserted = await client.execute({
+    sql: "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+    args: [name.trim(), email.toLowerCase().trim(), passwordHash]
+  });
 
-  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(info.lastInsertRowid);
+  const userId = Number(inserted.lastInsertRowid);
+  const userResult = await client.execute({ sql: "SELECT * FROM users WHERE id = ?", args: [userId] });
+  const user = userResult.rows[0];
+
   const token = signToken(user.id);
   res.status(201).json({ token, user: toPublicUser(user) });
 });
 
-router.post("/login", (req, res) => {
+router.post("/login", async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) {
     return res.status(400).json({ error: "Email and password are required." });
   }
 
-  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email.toLowerCase().trim());
+  const result = await client.execute({
+    sql: "SELECT * FROM users WHERE email = ?",
+    args: [email.toLowerCase().trim()]
+  });
+  const user = result.rows[0];
+
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: "Incorrect email or password." });
   }
@@ -59,20 +71,24 @@ router.post("/login", (req, res) => {
   res.json({ token, user: toPublicUser(user) });
 });
 
-router.get("/me", requireAuth, (req, res) => {
-  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
+router.get("/me", requireAuth, async (req, res) => {
+  const result = await client.execute({ sql: "SELECT * FROM users WHERE id = ?", args: [req.userId] });
+  const user = result.rows[0];
   if (!user) return res.status(404).json({ error: "User not found." });
   res.json({ user: toPublicUser(user) });
 });
 
-router.put("/level", requireAuth, (req, res) => {
+router.put("/level", requireAuth, async (req, res) => {
   const { level } = req.body || {};
   if (!["beginner", "intermediate", "advanced"].includes(level)) {
     return res.status(400).json({ error: "Level must be beginner, intermediate, or advanced." });
   }
-  db.prepare("UPDATE users SET current_level = ? WHERE id = ?").run(level, req.userId);
-  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
-  res.json({ user: toPublicUser(user) });
+  await client.execute({
+    sql: "UPDATE users SET current_level = ? WHERE id = ?",
+    args: [level, req.userId]
+  });
+  const result = await client.execute({ sql: "SELECT * FROM users WHERE id = ?", args: [req.userId] });
+  res.json({ user: toPublicUser(result.rows[0]) });
 });
 
 module.exports = router;

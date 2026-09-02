@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const { initDb } = require("./db");
 
 const authRoutes = require("./routes/auth");
 const lessonRoutes = require("./routes/lessons");
@@ -21,6 +22,14 @@ app.use("/api/progress", progressRoutes);
 
 app.use((req, res) => res.status(404).json({ error: "Not found." }));
 
-app.listen(PORT, () => {
-  console.log(`Deutsch Pfad API running on http://localhost:${PORT}`);
+async function start() {
+  await initDb();
+  app.listen(PORT, () => {
+    console.log(`Deutsch Pfad API running on http://localhost:${PORT}`);
+  });
+}
+
+start().catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
 });

@@ -6,7 +6,10 @@
 //
 // Skill-specific `content` shapes are documented above each section.
 
-const lessons = [
+const nounBank = require("./nouns");
+const { generateLessons } = require("./generateLessons");
+
+const curatedLessons = [
   // ---------------------------------------------------------------------
   // GRAMMAR — content: { explanation, examples[{de, en}], quiz[{question, options, answerIndex}] }
   // ---------------------------------------------------------------------
@@ -510,6 +513,9 @@ const lessons = [
     }
   }
 ];
+
+const generatedLessons = generateLessons(nounBank);
+const lessons = [...curatedLessons, ...generatedLessons];
 
 function getAllLessons() {
   return lessons;
